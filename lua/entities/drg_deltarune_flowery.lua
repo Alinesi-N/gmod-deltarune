@@ -62,18 +62,25 @@ ENT.PossessionViews = {
 }
 ENT.PossessionBinds = {
 	[IN_ATTACK] = {{coroutine = true,onkeydown = function(self)
+		if not self.Combat then return end
 		self:JaronaAttack()
 	end}},
 	[IN_ATTACK2] = {{coroutine = true,onkeydown = function(self)
+		if not self.Combat then return end
 		self:BarrageAttack()
 	end}},
 	[IN_RELOAD] = {{coroutine = true,onkeydown = function(self)
+		if not self.Combat then
+			self:Quote()
+		end
+		if not self.Combat then return end
 		self:PrismBlow()
 	end}},
 	[IN_DUCK] = {{coroutine = true,onkeydown = function(self)
 		self:Taunt()
 	end}},
 	[IN_JUMP] = {{coroutine = true,onkeydown = function(self)
+		if not self.Combat then return end
 		self:SpiralDance()
 	end}},
 }
@@ -152,9 +159,42 @@ end
 		  Vector(-self.CollisionBounds.x, -self.CollisionBounds.y, 0)
 		)
 	end
+	function ENT:Quote()
+		if self.AnimState then return end
+		self.AnimState = true
+		local anims = {"condescend","point_cooler","pose","shrugforward"}
+		self.AnimStateAnim = anims[math.random(#anims)]
+		local clips = {"snd_flowery_voiceclip_itsmeflowery","snd_flowery_voiceclip_itsme","snd_flowery_voiceclip_heyguys","snd_flowery_voiceclip_heyguysithinkifoundaglue","snd_flowery_voiceclip_heytherelittleguy","snd_flowery_voiceclip_sorrytokeepyouwaiting1","snd_flowery_voiceclip_sorrytokeepyouwaiting2","snd_flowery_voiceclip_sorrytokeepaladyinwaiting","snd_flowery_voiceclip_all_according_to_all_according_to_plant","snd_flowery_voiceclip_flowery","snd_flowery_voiceclip_flowery2","snd_flowery_voiceclip_glue","snd_flowery_voiceclip_great_style","snd_flowery_voiceclip_hey","snd_flowery_voiceclip_imsorryonceagainikeptaladyinwaiting","snd_flowery_voiceclip_its_all_in_a_name","snd_flowery_voiceclip_its_all_yours","snd_flowery_voiceclip_its_so_human","snd_flowery_voiceclip_itsme","snd_flowery_voiceclip_minipeppers","snd_flowery_voiceclip_mostlys","snd_flowery_voiceclip_my_king","snd_flowery_voiceclip_stingus","snd_flowery_voiceclip_thatsgreat","snd_flowery_voiceclip_theyre_eating_my_flesh","snd_flowery_voiceclip_thisguysyourbestfriend","snd_flowery_voiceclip_try_my_flavor","snd_flowery_voiceclip_wow","snd_flowery_voiceclip_yes","snd_flowery_voiceclip_yourdadsmybestfriend"}
+		self:EmitVoice("deltarune/flowery/"..clips[math.random(#clips)]..".wav")
+		self:Timer(1,function()
+			self.AnimState = false
+			self:EnableAI()
+		end)
+	end
 	function ENT:Taunt()
 		if self.AnimState then return end
-		if self.DreamMeter == 100 then
+		if not self.Combat then
+			self.PoweringUp = true
+			self.AnimState = true
+			self.Combat = true
+			self.IFRAME = true
+			self.AnimStateAnim = "poweringup"
+			self:EmitSound("deltarune/flowery/snd_flowery_power_up.wav",511)
+			self:Timer(3,function()
+				self:EmitVoice("deltarune/flowery/snd_flowery_voiceclip_lend_me_your_power.wav")
+				self.AnimStateAnim = "poweringupfinish"
+				self.PoweringUp = false
+			end)
+			self:Timer(3.7,function()
+				self.AnimStateAnim = "powerupintoidletransition"
+			end)
+			self:Timer(4.7,function()
+				self.IFRAME = false
+				self.AnimState = false
+			end)
+		return
+		end
+		if self.DreamMeter == 100 and not self.Omega then
 			self.PoweringUp = true
 			self.IFRAME = true
 			self.AnimState = true
@@ -559,7 +599,7 @@ end
 		self.AnimState = true
 		--[[self.AnimStateAnim = "poweringup"
 		self:EmitSound("deltarune/flowery/snd_flowery_power_up.wav",511)
-		self:EmitVoice("deltarune/flowery/snd_flowery_voiceclip_with_your_powers_combined.wav")
+		self:EmitVoice("deltarune/flowery/snd_flowery_voiceclip_lend_me_your_power.wav")
 		self:Timer(3,function()
 			self.AnimStateAnim = "poweringupfinish"
 		end)
@@ -678,6 +718,9 @@ end
 		self:EmitSound(snd,level,pitch,1,CHAN_VOICE)
 	end
 	function ENT:CustomThink()
+		if self.Omega then
+			self.DreamMeter = 100
+		end
 		if self.Omega and not self.AnimState and self:GetCooldown("OmegaTime")<=0 then
 			self.Omega = false
 			if self:IsOnGround() then
@@ -1018,7 +1061,7 @@ end
 					self.DreamMeter = 0
 				end
 			end
-			if not self.Omega then
+			if not self.Omega and not self.AnimState then
 				self.AnimState = true
 				self:EmitSound("deltarune/snd_damage.wav",511)
 				self.AnimStateAnim = "hurt"
@@ -1043,6 +1086,7 @@ end
 			end)
 			self:ResetSequence("kneel")
 		else
+			self.DreamMeter = 0
 			self.AnimState = true
 			self.AnimStateAnim = "kneel"
 			self:Timer(1,function()
@@ -1308,10 +1352,64 @@ function ENT:PossessionHUD()
 	surface.DrawRect(ScrW()*0.75-5, ScrH()*0.76-5, ScrW()*0.15+10, ScrH()*0.07+10)
 	surface.SetDrawColor(0,0,0,255)
 	surface.DrawRect(ScrW()*0.75, ScrH()*0.76, ScrW()*0.15, ScrH()*0.07)
-	surface.SetDrawColor(0,100,255,255)
+	if dream >= 100 then
+		if !self.ImageColorChange then
+			self.ImageColorChange = 0
+		end
+		if self.ImageColorChange<=CurTime() then
+			self.ImageColorChange = CurTime()+0.1
+			if !self.ImageColorLoop then
+				self.ImageColorLoop = 7
+			end
+			local col = self.ImageColorLoop
+			if col==0 then
+			  color =Vector(255,0,0)
+			elseif col==1 then
+			  color =Vector(255,122,0)
+			elseif col==2 then
+			  color =Vector(255,255,0)
+			elseif col==3 then
+			  color =Vector(122,255,0)
+			elseif col==4 then
+			  color =Vector(0,255,0)
+			elseif col==5 then
+			  color =Vector(0,255,122)
+			elseif col==6 then
+			  color =Vector(0,255,255)
+			elseif col==7 then
+			  color =Vector(0,122,255)
+			elseif col==8 then
+			  color =Vector(0,0,255)
+			elseif col==9 then
+			  color =Vector(122,0,255)
+			elseif col==10 then
+			  color =Vector(255,0,255)
+			elseif col>=11 then
+			  color =Vector(255,0,122)
+			  self.ImageColorLoop = -1
+			end
+			self.ImageColorLoop = self.ImageColorLoop + 1
+		end
+		local output = LerpVector( 0.5, self.LastImageColor, color )
+		self.LastImageColor = color
+		surface.SetDrawColor(output.x,output.y,output.z,255)
+	else
+		self.ImageColorLoop = nil
+		surface.SetDrawColor(0,100,255,255)
+	end
 	surface.DrawRect(ScrW()*0.75, ScrH()*0.76, (ScrW()*0.15)*dream/100, ScrH()*0.07)
 	draw.DrawText("Dream", "BIGSHOT", ScrW()*0.825, ScrH()*0.72, Color(255,230,25,255), TEXT_ALIGN_CENTER )
 	draw.DrawText(dream.."%", "BIGSHOT", ScrW()*0.825, ScrH()*0.777, Color(255,230,25,255), TEXT_ALIGN_CENTER )
+	local hp = self:Health()
+	local hpmax = self:GetMaxHealth()
+	surface.SetDrawColor(255,255,255,255)
+	surface.DrawRect(ScrW()*0.1-5, ScrH()*0.76-5, ScrW()*0.15+10, ScrH()*0.07+10)
+	surface.SetDrawColor(122,0,0,255)
+	surface.DrawRect(ScrW()*0.1, ScrH()*0.76, ScrW()*0.15, ScrH()*0.07)
+	surface.SetDrawColor(255,230,25,255)
+	surface.DrawRect(ScrW()*0.1, ScrH()*0.76, (ScrW()*0.15)*hp/hpmax, ScrH()*0.07)
+	draw.DrawText("HP", "BIGSHOT", ScrW()*0.175, ScrH()*0.72, Color(255,255,255,255), TEXT_ALIGN_CENTER )
+	draw.DrawText(hp, "BIGSHOT", ScrW()*0.175, ScrH()*0.777, Color(255,255,255,255), TEXT_ALIGN_CENTER )
 end
 end
 function ENT:SetupDataTables()
