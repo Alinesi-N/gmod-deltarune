@@ -194,7 +194,10 @@ end
 			local clips = {"snd_flowery_voiceclip_thatsgreat","snd_flowery_voiceclip_dont_you_like_serving_humans","snd_flowery_voiceclip_flowers_blooms_in_your_heart","snd_flowery_voiceclip_forget_it","snd_flowery_voiceclip_get_a_chance_1","snd_flowery_voiceclip_get_a_chance_2","snd_flowery_voiceclip_go_home","snd_flowery_voiceclip_heh_it_s_my_jarona","snd_flowery_voiceclip_huhillshowyou","snd_flowery_voiceclip_nonono","snd_flowery_voiceclip_sorryaboutthatlittleguy","snd_flowery_voiceclip_suckle_it_up","snd_flowery_voiceclip_what_a_predictable_creature"}
 			self.AnimStateAnim = "condescend"
 			self:EmitVoice("deltarune/flowery/"..clips[math.random(#clips)]..".wav")
+			self.DreamMeter = self.DreamMeter + 5
+			if self.DreamMeter >= 100 then
 				self.DreamMeter = 100
+			end
 			self:Timer(1,function()
 				self.AnimState = false
 			end)
