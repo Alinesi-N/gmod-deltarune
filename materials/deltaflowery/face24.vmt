@@ -1,0 +1,5 @@
+"UnlitGeneric"
+{
+	"$basetexture" "deltaflowery/face24"
+	$alphatest 1
+}
