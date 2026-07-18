@@ -851,7 +851,7 @@ end
 		end
 	end
 	function ENT:AfterImage(rainbow,blue)
-		if self:GetCooldown("Aura")>0 then return end
+		if self:GetCooldown("Aura")>0 or self:GetSequence()<=0 then return end
 		self:SetCooldown("Aura",0.1)
 		local aura = ents.Create("base_anim")
 		  aura:SetModel(string.Replace(self:GetModel(),".mdl","_image.mdl"))
@@ -1360,6 +1360,7 @@ function ENT:PossessionHUD()
 			self.ImageColorChange = CurTime()+0.1
 			if !self.ImageColorLoop then
 				self.ImageColorLoop = 7
+				self.LastImageColor = Vector(0,100,255)
 			end
 			local col = self.ImageColorLoop
 			if col==0 then
