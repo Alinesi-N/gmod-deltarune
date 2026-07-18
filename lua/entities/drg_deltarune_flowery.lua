@@ -179,9 +179,9 @@ end
 			self.Combat = true
 			self.IFRAME = true
 			self.AnimStateAnim = "poweringup"
+			self:EmitVoice("deltarune/flowery/snd_flowery_voiceclip_lend_me_your_power.wav")
 			self:EmitSound("deltarune/flowery/snd_flowery_power_up.wav",511)
 			self:Timer(3,function()
-				self:EmitVoice("deltarune/flowery/snd_flowery_voiceclip_lend_me_your_power.wav")
 				self.AnimStateAnim = "poweringupfinish"
 				self.PoweringUp = false
 			end)
@@ -189,6 +189,8 @@ end
 				self.AnimStateAnim = "powerupintoidletransition"
 			end)
 			self:Timer(4.7,function()
+				self:EnableAI()
+				self:RemoveFlags(FL_NOTARGET)
 				self.IFRAME = false
 				self.AnimState = false
 			end)
@@ -255,6 +257,7 @@ end
 		end
 		self:EmitVoice("deltarune/flowery/snd_flowery_voiceclip_spiral_dance.wav")
 		for k,v in pairs(ents.FindInSphere(self:GetPos(),500)) do
+			if v == self:GetPossessor() then continue end
 			v:SetGravity(300)
 			if v:IsNextBot() then
 				v.loco:SetGravity(300)
@@ -612,12 +615,13 @@ end
 		self:EmitVoice("deltarune/flowery/"..clips[math.random(#clips)]..".wav")
 		self:Timer(2,function()
 			self.AnimState = false
-			self:EnableAI()
 		end)
 	end
 	function ENT:ZombieInit()
 	end
 	function ENT:CustomInitialize()
+		self:DisableAI()
+		self:AddFlags(FL_NOTARGET)
 		self.DreamMeter = 0
 	end
 	function ENT:AttackFunction(dmg,dmgtype,sndhit,sndmiss,rang,bleed,bleedtime,ang,viewp)
@@ -689,7 +693,7 @@ end
 		end
 	end
 	function ENT:OnMeleeAttack(enemy)
-		self:JaronaAttack()
+		--self:JaronaAttack()
 	end
 	function ENT:PerZombieEvents(a,b,c,d,e)
 	end
