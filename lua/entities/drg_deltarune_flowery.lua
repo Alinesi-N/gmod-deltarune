@@ -1,6 +1,6 @@
 if not DrGBase then return end -- return if DrGBase isn't installed
 ENT.Base = "drgbase_nextbot" -- DO NOT TOUCH (obviously)
-
+local music = CreateConVar( "deltarune_music_enabled", "1", {FCVAR_ARCHIVE, FCVAR_NOTIFY}, "", 0, 1 )
 -- Misc --
 ENT.PrintName = "Flowery"
 ENT.Category = "DELTARUNE"
@@ -35,7 +35,7 @@ ENT.DeathSounds = {}
 
 -- Movements --
 ENT.UseWalkframes = false
-ENT.WalkSpeed = 60
+ENT.WalkSpeed = 80
 ENT.RunSpeed = 600
 
 -- Climbing --
@@ -125,6 +125,8 @@ function ENT:PossessorView()
 	return tr.HitPos, self:GetPossessor():EyeAngles()
 end
 if SERVER then
+util.AddNetworkString( "deltarunemusic" )
+util.AddNetworkString( "deltarunemusicstop" )
 function ENT:PossessionControls(f,b,r,l)
 	if self.AnimState then return end
 	local direction = self:GetPos()
@@ -159,8 +161,23 @@ end
 		  Vector(-self.CollisionBounds.x, -self.CollisionBounds.y, 0)
 		)
 	end
+	function ENT:StartMusic(lp,st,en)
+		if lp == nil or !GetConVar("deltarune_music_enabled"):GetBool() then return end
+		local st = "empty" or st
+		local en = "empty" or en
+		net.Start('deltarunemusic')
+		net.WriteString(lp)
+		net.WriteString(st)
+		net.WriteString(en)
+		net.Send(player.GetAll())
+	end
+	function ENT:StopMusic()
+		net.Start('deltarunemusicstop')
+		net.Send(player.GetAll())
+	end
 	function ENT:Quote()
 		if self.AnimState then return end
+		self:StartMusic("deltarune/flowery/mus/flowery.ogg")
 		self.AnimState = true
 		local anims = {"condescend","point_cooler","pose","shrugforward"}
 		self.AnimStateAnim = anims[math.random(#anims)]
@@ -174,6 +191,7 @@ end
 	function ENT:Taunt()
 		if self.AnimState then return end
 		if not self.Combat then
+			self:StopMusic()
 			self.PoweringUp = true
 			self.AnimState = true
 			self.Combat = true
@@ -189,6 +207,7 @@ end
 				self.AnimStateAnim = "powerupintoidletransition"
 			end)
 			self:Timer(4.7,function()
+				self:StartMusic("deltarune/flowery/mus/Flowerman_Arrangement.ogg")
 				self:EnableAI()
 				self:RemoveFlags(FL_NOTARGET)
 				self.IFRAME = false
@@ -258,10 +277,11 @@ end
 		self:EmitVoice("deltarune/flowery/snd_flowery_voiceclip_spiral_dance.wav")
 		for k,v in pairs(ents.FindInSphere(self:GetPos(),500)) do
 			if v == self:GetPossessor() then continue end
-			v:SetGravity(300)
 			if v:IsNextBot() then
 				v.loco:SetGravity(300)
 				v.loco:Jump(10)
+			else
+				v:SetGravity(0.5)
 			end
 			v:SetGroundEntity(NULL)
 			v:SetVelocity(v:GetUp()*1000)
@@ -297,6 +317,11 @@ end
 					self:KnockBack(v,800,500)
 					timer.Simple(2,function()
 						if IsValid(v) then
+							if v:IsNextBot() then
+								v.loco:SetGravity(600)
+							else
+								v:SetGravity(1)
+							end
 							v.PrismBlown = false
 						end
 					end)
@@ -432,7 +457,7 @@ end
 			local clips = {"snd_flowery_voiceclip_hah","snd_flowery_voiceclip_hoo","snd_flowery_voiceclip_huh"}
 			self:EmitVoice("deltarune/flowery/"..clips[math.random(#clips)]..".wav")
 			self:AfterImage(_,true)
-				self.loco:SetGravity(0)
+				self.loco:SetGravity(0.0001)
 				self:SetCollisionGroup(COLLISION_GROUP_IN_VEHICLE)
 			local push = ents.Create("prop_dynamic")
 			push:SetModel("models/Gibs/HGIBS.mdl")
@@ -443,7 +468,7 @@ end
 			push:SetNoDraw(true)
 			push:SetNotSolid(true)
 			push:SetOwner(self)
-			if ent == game.GetWorld() then
+			if ent == game.GetWorld() or (!ent:IsNPC() and !ent:IsNextBot() and !ent:IsPlayer()) then
 				self.Combo = 0
 				self:EmitSound("deltarune/snd_impact.wav",100)
 				self.AnimStateAnim = "deflected"
@@ -475,7 +500,7 @@ end
 				if self.DreamMeter < 0 then
 					self.DreamMeter = 0
 				end
-			elseif self.Combo >= 4 and not self.Omega or self.Combo >=10 and self.Omega or ent:Health()<80 or self.PrismCombo then
+			elseif self.Combo >= 4 and not self.Omega or self.Combo >=10 and self.Omega or (ent:GetMaxHealth()>=80 and ent:Health()<80) or self.PrismCombo then
 				self.Combo = 0
 				self.IFRAME = true
 				self.PrismCombo = false
@@ -571,7 +596,9 @@ end
 					self.DreamMeter = 0
 				end
 				self.PrismCombo = true
-				ent:SetGravity(0)
+				if not ent:IsPlayer() then
+					ent:SetGravity(0.0001)
+				end
 			end
 			if ent:IsNextBot() or ent:IsNPC() or ent:IsPlayer() then
 				self:AfterImage(_,true)
@@ -756,20 +783,20 @@ end
 			end)
 		end
 		if self.FreezeFrame then
-			self.loco:SetGravity(0)
+			self.loco:SetGravity(0.0001)
 			self:SetVelocity(Vector(0,0,0))
 			if IsValid(self.FreezeFramePartner) then
 				self.FreezeFramePartner:SetVelocity(Vector(0,0,0))
 			end
 		elseif self.PoweringUp then
-			self.loco:SetGravity(0)
+			self.loco:SetGravity(0.0001)
 			self:SetVelocity(Vector(0,0,5))
 			if self:IsOnGround() then
 				self:SetPos(self:GetPos()+Vector(0,0,25))
 			end
 		end
 		if self.Barrging then
-			self.loco:SetGravity(0)
+			self.loco:SetGravity(0.0001)
 			self:SetVelocity(Vector(0,0,0))
 			if IsValid(self.Barraged) then
 				self.Barraged:SetVelocity(Vector(0,0,0))
@@ -777,6 +804,7 @@ end
 			if not IsValid(self.Barraged) then
 				self:EmitVoice("deltarune/flowery/snd_flowery_voiceclip_all_according_to_all_according_to_plant.wav")
 				self.Barrging = false
+				self.Barraged = nil
 				self.AnimState = true
 				self.loco:SetGravity(600)
 				self:SetVelocity(Vector(0,0,0))
@@ -850,6 +878,7 @@ end
 					if self.Barraged.IsDrGNextbot then
 						self.Barraged:EnableAI()
 					end
+					self.Barraged = nil
 				end)
 			end
 		end
@@ -1077,6 +1106,7 @@ end
 	end
 	function ENT:DeathAnim()
 		if self:IsDead() then
+			self:StartMusic("deltarune/flowery/mus/flowery_sad.ogg")
 			self:Timer(0.5,function()
 				self:EmitVoice("deltarune/flowery/snd_flowery_voiceclip_goodbye.wav")
 			end)
@@ -1125,6 +1155,7 @@ end
 		self:SetColor(Color(255,255,255))
 		self:SetCollisionGroup(COLLISION_GROUP_IN_VEHICLE)
 		self:EmitSound("deltarune/snd_damage.wav",511)
+		self:StopMusic()
 		if self:IsOnGround() then
 			self:DeathAnim()
 		else
@@ -1138,6 +1169,15 @@ end
 		self:PauseCoroutine(true)
 	end
 elseif CLIENT then
+net.Receive('deltarunemusic', function(len,ply)
+	local loop = net.ReadString()
+	local start = nil or net.ReadString()
+	local en = nil or net.ReadString()
+	DELTARUNE_MUSIC_START(loop,start,en)
+end)
+net.Receive('deltarunemusicstop', function(len,ply)
+	DELTARUNE_MUSIC_STOP()
+end)
 	
 function ENT:CustomDraw()
 	if self:GetNW2Bool("Flower") then 
@@ -1150,10 +1190,10 @@ function ENT:CustomDraw()
 		self:DrawModel()
 	end
 end
-surface.CreateFont( "BIGSHOT", {
-	font = "BIG SHOT",
+surface.CreateFont( "8bitoperator", {
+	font = "8bitoperator JVE",
 	extended = false,
-	size = 37,
+	size = 47,
 	weight = 1,
 	blursize = 0,
 	scanlines = 0,
@@ -1208,15 +1248,15 @@ hook.Add("HUDPaint", "DeltaruneText", function()
 		surface.SetDrawColor(255,255,255,255)
 		surface.SetMaterial(head)
 		surface.DrawTexturedRectRotatedPoint(
-			(ScrW()/2)-330, (ScrH()/1.2)-5,
-			head:Width()*3,
-			head:Height()*3,
+			(ScrW()/2)-300, (ScrH()/1.2),
+			head:Width()*2.8,
+			head:Height()*2.8,
 			0,
 			0,
 			0
 		)
 		local text = DELTARUNE_Text
-		draw.DrawText( "*", "BIGSHOT", (ScrW()/2)-230, (ScrH()/1.32), color_white, TEXT_ALIGN_LEFT )
+		draw.DrawText( "*", "8bitoperator", (ScrW()/2)-230, (ScrH()/1.32), color_white, TEXT_ALIGN_LEFT )
 		if DELTARUNE_TextBoxSpeakD <= CurTime() and DELTARUNE_TextBoxDialouge != text then
 			DELTARUNE_TextBoxSpeak = DELTARUNE_TextBoxSpeak+1
 			local pause =string.sub( text, DELTARUNE_TextBoxSpeak, DELTARUNE_TextBoxSpeak )
@@ -1269,7 +1309,7 @@ hook.Add("HUDPaint", "DeltaruneText", function()
 			DELTARUNE_TextBoxSpeakVoice = 0
 			head = nil
 		end
-		draw.DrawText( DELTARUNE_TextBoxDialouge, "BIGSHOT", (ScrW()/2)-186, (ScrH()/1.32), color_white, TEXT_ALIGN_LEFT )
+		draw.DrawText( DELTARUNE_TextBoxDialouge, "8bitoperator", (ScrW()/2)-186, (ScrH()/1.32), color_white, TEXT_ALIGN_LEFT )
 	end
 end)
 hook.Add( "OnPlayerChat", "flowery", function( ply, text )
@@ -1403,8 +1443,8 @@ function ENT:PossessionHUD()
 		surface.SetDrawColor(0,100,255,255)
 	end
 	surface.DrawRect(ScrW()*0.75, ScrH()*0.76, (ScrW()*0.15)*dream/100, ScrH()*0.07)
-	draw.DrawText("Dream", "BIGSHOT", ScrW()*0.825, ScrH()*0.72, Color(255,230,25,255), TEXT_ALIGN_CENTER )
-	draw.DrawText(dream.."%", "BIGSHOT", ScrW()*0.825, ScrH()*0.777, Color(255,230,25,255), TEXT_ALIGN_CENTER )
+	draw.DrawText("Dream", "8bitoperator", ScrW()*0.825, ScrH()*0.7, Color(255,230,25,255), TEXT_ALIGN_CENTER )
+	draw.DrawText(dream.."%", "8bitoperator", ScrW()*0.825, ScrH()*0.77, Color(255,230,25,255), TEXT_ALIGN_CENTER )
 	local hp = self:Health()
 	local hpmax = self:GetMaxHealth()
 	surface.SetDrawColor(255,255,255,255)
@@ -1413,8 +1453,8 @@ function ENT:PossessionHUD()
 	surface.DrawRect(ScrW()*0.1, ScrH()*0.76, ScrW()*0.15, ScrH()*0.07)
 	surface.SetDrawColor(255,230,25,255)
 	surface.DrawRect(ScrW()*0.1, ScrH()*0.76, (ScrW()*0.15)*hp/hpmax, ScrH()*0.07)
-	draw.DrawText("HP", "BIGSHOT", ScrW()*0.175, ScrH()*0.72, Color(255,255,255,255), TEXT_ALIGN_CENTER )
-	draw.DrawText(hp, "BIGSHOT", ScrW()*0.175, ScrH()*0.777, Color(255,255,255,255), TEXT_ALIGN_CENTER )
+	draw.DrawText("HP", "8bitoperator", ScrW()*0.175, ScrH()*0.7, Color(255,255,255,255), TEXT_ALIGN_CENTER )
+	draw.DrawText(hp, "8bitoperator", ScrW()*0.175, ScrH()*0.77, Color(255,255,255,255), TEXT_ALIGN_CENTER )
 end
 end
 function ENT:SetupDataTables()
